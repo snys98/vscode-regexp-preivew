@@ -6,6 +6,7 @@
         "lib": [
             "es6"
         ],
+        "types": ["node","mocha"],
         "sourceMap": true,
         "rootDir": "."
     },

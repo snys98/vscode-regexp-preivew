@@ -2,57 +2,82 @@
 // The module 'vscode' contains the VS Code extensibility API
 // Import the module and reference it with the alias vscode in your code below
 import * as vscode from 'vscode';
+import { TextDocumentShowOptions } from 'vscode';
 
 const path = require('path');
 const fs = require('fs');
 
 function htmlEncode(str) {
-  var s = '';
-  if (str.length == 0) return '';
-  s = str.replace(/&/g, '&amp;');
-  s = s.replace(/</g, '&lt;');
-  s = s.replace(/>/g, '&gt;');
-  s = s.replace(/ /g, '&nbsp;');
-  s = s.replace(/\'/g, '&#39;');
-  s = s.replace(/\"/g, '&quot;');
-  return s;
+    var s = '';
+    if (str.length == 0) return '';
+    s = str.replace(/&/g, '&amp;');
+    s = s.replace(/</g, '&lt;');
+    s = s.replace(/>/g, '&gt;');
+    s = s.replace(/ /g, '&nbsp;');
+    s = s.replace(/\'/g, '&#39;');
+    s = s.replace(/\"/g, '&quot;');
+    return s;
 }
 
 // this method is called when your extension is activated
 // your extension is activated the very first time the command is executed
 export function activate(context: vscode.ExtensionContext) {
-  let previewUri = vscode.Uri.parse('regexper-preview://authority/regexper-preview');
-  let isLoading = true;
-  let expression = '';
+    let previewUri = vscode.Uri.parse('regexper-preview://authority/regexper-preview');
+    let isLoading = true;
+    let expression = '';
+    let previewPanel: vscode.WebviewPanel;
+    let editor;
 
-  class TextDocumentContentProvider implements vscode.TextDocumentContentProvider {
-    private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
-
-    public provideTextDocumentContent(uri: vscode.Uri): string {
-      return this.snippet();
+    function showPreview(provider, previewUri) {
+        if (previewPanel === undefined) {
+            previewPanel = vscode.window.createWebviewPanel("html", 'RegExp Preview', { viewColumn: vscode.ViewColumn.Beside }, {
+                enableCommandUris: true,
+                enableScripts: true,
+                enableFindWidget: true,
+            });
+            previewPanel.onDidDispose(_ => {
+                previewPanel = undefined;
+            })
+        }
+        previewPanel.webview.html = provider.provideTextDocumentContent(previewUri);
+        // vscode.commands.executeCommand('vscode.open', previewUri, <TextDocumentShowOptions>{ preview: true, viewColumn: vscode.ViewColumn.Beside},'RegExp Preview').then(
+        //     success => {
+        //         vscode.window.showInformationMessage("success");
+        //     },
+        //     reason => {
+        //         vscode.window.showErrorMessage(reason);
+        //     }
+        // );
     }
 
-    get onDidChange(): vscode.Event<vscode.Uri> {
-      return this._onDidChange.event;
-    }
+    class TextDocumentContentProvider implements vscode.TextDocumentContentProvider {
+        private _onDidChange = new vscode.EventEmitter<vscode.Uri>();
 
-    public update(uri: vscode.Uri) {
-      this._onDidChange.fire(uri);
-    }
+        public provideTextDocumentContent(uri: vscode.Uri): string {
+            return this.snippet();
+        }
 
-    private errorSnippet(error: string): string {
-      return `<body> ${error} </body>`;
-    }
+        get onDidChange(): vscode.Event<vscode.Uri> {
+            return this._onDidChange.event;
+        }
 
-    protected snippet(): string {
-      var data = fs.readFileSync(path.join(__dirname, '../../assets', 'index.js.txt'));
-      const lib = data.toString();
+        public update(uri: vscode.Uri) {
+            this._onDidChange.fire(uri);
+        }
 
-      if (expression === '') {
-        return `<body> <h3>No regexp expression provided.</h3></body>`;
-      }
+        private errorSnippet(error: string): string {
+            return `<body> ${error} </body>`;
+        }
 
-      const testHtml = `
+        protected snippet(): string {
+            var data = fs.readFileSync(path.join(__dirname, '../../assets', 'index.js.txt'));
+            const lib = data.toString();
+
+            if (expression === '') {
+                return `<body> <h3>No regexp expression provided.</h3></body>`;
+            }
+
+            const testHtml = `
       <!DOCTYPE html>
       <meta charset="utf-8">
       <link href="https://cdn.bootcss.com/highlight.js/9.12.0/styles/github.min.css" rel="stylesheet">
@@ -233,91 +258,93 @@ export function activate(context: vscode.ExtensionContext) {
       <script>hljs.initHighlightingOnLoad();</script>
 `;
 
-      return testHtml;
-    }
-  }
-
-  let provider = new TextDocumentContentProvider();
-  let registration = vscode.workspace.registerTextDocumentContentProvider('regexper-preview', provider);
-
-  let disposable = vscode.commands.registerCommand('extension.showRegexper', () => {
-    var editor = vscode.window.activeTextEditor;
-
-    if (!editor) {
-      vscode.window.showInformationMessage('Open a file first!');
-      return;
-    }
-
-    let selection = editor.selection;
-    let text = editor.document.getText(selection).trim();
-
-    // 支持js构造函数的形式
-    // todo: 支持其他语言的正则构造形式
-    let reg = /^new RegExp\(([\s\S]+)\);?$/;
-    if (reg.test(text)) {
-      let tmp = new Function(`return ${text}`);
-      text = tmp().toString();
-    }
-
-    if (expression === '') {
-      // 第一次显示
-      expression = text;
-      vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two, 'RegExp Preview').then(
-        success => {},
-        reason => {
-          vscode.window.showErrorMessage(reason);
+            return testHtml;
         }
-      );
-
-      vscode.workspace.onDidCloseTextDocument((e: vscode.TextDocument) => {
-        if (e.uri.scheme === 'regexper-preview') {
-          expression = '';
-        }
-      });
-    } else {
-      expression = text;
-      provider.update(previewUri);
     }
-  });
 
-  vscode.commands.registerCommand('extension.regexpEditor', () => {
-    vscode.workspace
-      .openTextDocument({
-        content: '',
-        language: 'js',
-      })
-      .then(doc => {
-        return vscode.window.showTextDocument(doc);
-      })
-      .then(() => {
-        var editor = vscode.window.activeTextEditor;
+    let provider = new TextDocumentContentProvider();
+    let registration = vscode.workspace.registerTextDocumentContentProvider('regexper-preview', provider);
+
+    let disposable = vscode.commands.registerCommand('extension.showRegexper', () => {
+        editor = vscode.window.activeTextEditor;
 
         if (!editor) {
-          vscode.window.showInformationMessage('Open a file first!');
-          return;
+            vscode.window.showInformationMessage('Open a file first!');
+            return;
         }
 
-        var text = editor.document.getText().trim();
-        expression = text;
+        let selection = editor.selection;
+        let text = editor.document.getText(selection).trim();
 
-        vscode.commands.executeCommand('vscode.previewHtml', previewUri, vscode.ViewColumn.Two, 'RegExp Preview').then(
-          success => {},
-          reason => {
-            vscode.window.showErrorMessage(reason);
-          }
-        );
+        // 支持js构造函数的形式
+        // todo: 支持其他语言的正则构造形式
+        let reg = /^new RegExp\(([\s\S]+)\);?$/;
+        if (reg.test(text)) {
+            let tmp = new Function(`return ${text}`);
+            text = tmp().toString();
+        }
 
-        vscode.workspace.onDidChangeTextDocument((e: vscode.TextDocumentChangeEvent) => {
-          if (e.document === vscode.window.activeTextEditor.document) {
-            expression = editor.document.getText().trim();
-            provider.update(previewUri);
-          }
-        });
-      });
-  });
+        if (expression === '') {
+            // 第一次显示
+            expression = text;
 
-  context.subscriptions.push(disposable, registration);
+            showPreview(provider, previewUri);
+
+            vscode.workspace.onDidCloseTextDocument((e: vscode.TextDocument) => {
+                if (e.uri.scheme === 'regexper-preview') {
+                    expression = '';
+                }
+            });
+        } else {
+            expression = text;
+            try {
+                showPreview(provider, previewUri);
+            } catch (error) {
+                vscode.window.showInformationMessage(error);
+            }
+        }
+    });
+
+    vscode.commands.registerCommand('extension.regexpEditor', () => {
+        vscode.workspace
+            .openTextDocument({
+                content: '',
+                language: 'js',
+            })
+            .then(doc => {
+                return vscode.window.showTextDocument(doc);
+            })
+            .then(() => {
+                var editor = vscode.window.activeTextEditor;
+
+                if (!editor) {
+                    vscode.window.showInformationMessage('Open a file first!');
+                    return;
+                }
+
+                var text = editor.document.getText().trim();
+                expression = text;
+
+                showPreview(provider, previewUri);
+
+                vscode.workspace.onDidChangeTextDocument((e: vscode.TextDocumentChangeEvent) => {
+                    if (e.document === editor.document) {
+                        expression = editor.document.getText().trim();
+                        showPreview(provider, previewUri);
+                    }
+                });
+                vscode.workspace.onDidCloseTextDocument((e) => {
+                    if (e === editor.document) {
+                        previewPanel.dispose();
+                    }
+                });
+            });
+    });
+
+    context.subscriptions.push(disposable, registration);
+
 }
 
 // this method is called when your extension is deactivated
-export function deactivate() {}
+export function deactivate() {
+}
