@@ -1,9 +1,9 @@
 {
     "name": "vscode-regexp-preivew",
     "displayName": "RegExp Preview and Editor",
-    "description": "VSCode extension based on regexper-static",
-    "version": "0.0.4",
-    "publisher": "le0zh",
+    "description": "VSCode extension based on regexper-static, support new version of vscode",
+    "version": "1.0.0",
+    "publisher": "Lulus",
     "engines": {
         "vscode": "^1.32.0"
     },
@@ -12,14 +12,14 @@
         "theme": "dark"
     },
     "icon": "docs/icon.png",
-    "homepage": "https://github.com/le0zh/vscode-regexp-preivew/blob/master/README.md",
+    "homepage": "https://github.com/snys98/vscode-regexp-preivew/blob/master/README.md",
     "bugs": {
-        "url": "https://github.com/le0zh/vscode-regexp-preivew/issues",
+        "url": "https://github.com/snys98/vscode-regexp-preivew/issues",
         "email": "newlight@qq.com"
     },
     "repository": {
         "type": "git",
-        "url": "https://github.com/le0zh/vscode-regexp-preivew.git"
+        "url": "https://github.com/snys98/vscode-regexp-preivew.git"
     },
     "categories": [
         "Other"
